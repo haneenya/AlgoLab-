@@ -1,0 +1,96 @@
+#include <iostream>
+#include <vector>
+#include <random>
+#include <chrono>
+
+using namespace std;
+
+//  توليد أرقام عشوائية ثابت عشان الريزولت اتضل مستقرة 
+static mt19937& gen() {
+    static random_device rd;
+    static mt19937 g(rd());
+    return g;
+}
+// توليد بيانات عشوائية random
+vector<int> generateRandom(int n) {
+    uniform_int_distribution<int> dist(0, 1000);
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) a[i] = dist(gen());
+    return a;
+}
+// توليد بيانات reverse عكسية
+vector<int> generateReverse(int n) {
+    vector<int> a(n);
+    for (int i = 0; i < n; i++) a[i] = n - i;
+    return a;
+}
+
+// Selection Sort عد المقارانات مع
+long long selectionSort(vector<int>& a) {
+    long long comp = 0;
+    int n = a.size();
+    for (int i = 0; i < n - 1; i++) {
+        int minIdx = i;
+        for (int j = i + 1; j < n; j++) {
+            comp++;
+            if (a[j] < a[minIdx])
+                minIdx = j;
+        }
+        swap(a[i], a[minIdx]);
+    }
+    return comp;
+}
+
+// Insertion Sort كع عد المقارانات
+long long insertionSort(vector<int>& a) {
+    long long comp = 0;
+    int n = a.size();
+    for (int i = 1; i < n; i++) {
+        int key = a[i];
+        int j = i - 1;
+        while (j >= 0) {
+            comp++;
+            if (a[j] > key) {
+                a[j + 1] = a[j];
+                j--;
+            }
+            else break;
+        }
+        a[j + 1] = key;
+    }
+    return comp;
+}
+//تجربة وحدة وطباعة النتائج 
+void run(const string& algo, long long (*sortFunc)(vector<int>&),
+    const string& type, int size) {
+
+    vector<int> arr = (type == "Random")
+        ? generateRandom(size)
+        : generateReverse(size);
+
+    auto start = chrono::high_resolution_clock::now();
+    long long comps = sortFunc(arr);
+    auto end = chrono::high_resolution_clock::now();
+
+    double timeMs = chrono::duration<double, milli>(end - start).count();
+
+    cout << "------------------------------\n";
+    cout << "Input Type: " << type << endl;
+    cout << "Size: " << size << endl;
+    cout << "Algorithm: " << algo << endl;
+    cout << "Time (ms): " << timeMs << endl;
+    cout << "Comparisons: " << comps << endl;
+}
+
+int main() {
+    int sizes[] = { 50, 100, 150 };
+    string inputs[] = { "Random", "Reverse" };
+
+    for (int s : sizes) {
+        for (string in : inputs) {
+            run("SelectionSort", selectionSort, in, s);
+            run("InsertionSort", insertionSort, in, s);
+        }
+    }
+    return 0;
+}
