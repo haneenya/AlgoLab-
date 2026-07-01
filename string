@@ -1,0 +1,171 @@
+#include <iostream>
+#include <string>
+#include <random>
+#include <chrono>
+#include <vector>
+
+using namespace std;
+
+
+// توليد نص عشوائي بطول معيّن
+static mt19937& getGen() {
+    static random_device rd;
+    static mt19937 gen(rd());
+    return gen;
+}
+
+string generateRandomText(int length) {
+    uniform_int_distribution<int> dist(0, 25);
+    string text;
+    text.reserve(length);
+    for (int i = 0; i < length; i++) {
+        text.push_back(char('a' + dist(getGen())));
+    }
+    return text;
+}
+
+
+// توليد نص Reverse (z,y,x,... بشكل متكرر)
+string generateReverseText(int length) {
+    string text;
+    text.reserve(length);
+    for (int i = 0; i < length; i++) {
+        text.push_back(char('z' - (i % 26)));
+    }
+    return text;
+}
+
+
+// Brute Force Search + عدّ مقارنات الأحرف (عشان المقارنة)
+int bruteForceSearch(const string& text, const string& pattern, long long& charComparisons) {
+    int n = (int)text.length();
+    int m = (int)pattern.length();
+    charComparisons = 0;
+
+    if (m == 0) return 0;
+    if (m > n) return -1;
+
+    for (int i = 0; i <= n - m; i++) {
+        int j = 0;
+
+        while (j < m) {
+            charComparisons++;                 // مقارنة حرف بحرف
+            if (text[i + j] != pattern[j]) break;
+            j++;
+        }
+
+        if (j == m) return i;                 // أول تطابق
+    }
+
+    return -1;
+}
+
+
+// Boyer-Moore (Bad Character Rule) + عدّ مقارنات الأحرف
+
+// جدول آخر ظهور لكل حرف في الـ pattern
+vector<int> buildLastOccurrenceTable(const string& pattern) {
+    vector<int> last(256, -1);
+    for (int i = 0; i < (int)pattern.size(); i++) {
+        last[(unsigned char)pattern[i]] = i;
+    }
+    return last;
+}
+
+// ترجع أول index للتطابق أو -1
+int boyerMooreSearch(const string& text, const string& pattern, long long& charComparisons) {
+    int n = (int)text.size();
+    int m = (int)pattern.size();
+    charComparisons = 0;
+
+    if (m == 0) return 0;
+    if (m > n) return -1;
+
+    vector<int> last = buildLastOccurrenceTable(pattern);
+
+    int shift = 0; // مقدار الإزاحة الحالية في النص
+    while (shift <= n - m) {
+        int j = m - 1; // نبدأ المقارنة من آخر حرف في pattern
+
+        // نقارن من اليمين لليسار
+        while (j >= 0) {
+            charComparisons++; //    مقارنة حرف بحرف
+            if (pattern[j] == text[shift + j]) {
+                j--;
+            }
+            else {
+                break;
+            }
+        }
+
+        // إذا j صار -1 معناها كل الأحرف تطابقت
+        if (j < 0) {
+            return shift;
+        }
+        else {
+            // Bad Character Rule:
+            //ذا الحرف الموجود في النص مش موجود ب pattern -> lastPos = -1
+            unsigned char badChar = (unsigned char)text[shift + j];
+            int lastPos = last[badChar];
+
+            // مقدار الإزاحة لازم يكون على الأقل 1
+            int moveBy = max(1, j - lastPos);
+            shift += moveBy;
+        }
+    }
+
+    return -1;
+}
+
+
+// تشغيل التجارب و طباعة النتائج 
+
+void runTest(const string& algoName,
+    int (*searchFunc)(const string&, const string&, long long&),
+    const string& text,
+    const string& pattern) {
+
+    long long comparisons = 0;
+
+    auto start = chrono::high_resolution_clock::now();
+    int index = searchFunc(text, pattern, comparisons);
+    auto end = chrono::high_resolution_clock::now();
+
+    double timeMs = chrono::duration<double, milli>(end - start).count();
+
+    cout << "Algorithm: " << algoName << "\n";
+    if (index != -1) cout << "Pattern found at index: " << index << "\n";
+    else cout << "Pattern not found\n";
+    cout << "Search time (ms): " << timeMs << "\n";
+    cout << "Character comparisons: " << comparisons << "\n";
+}
+
+int main() {
+    int textSizes[2] = { 300, 500 };
+    string inputTypes[2] = { "Random", "Reverse" };
+
+    //  البحث (ثابت)
+    // ممكن ما يطلع موجود
+    string pattern = "abc";
+
+    for (int size : textSizes) {
+        for (const string& type : inputTypes) {
+            string text = (type == "Random") ? generateRandomText(size)
+                : generateReverseText(size);
+
+            cout << "==============================\n";
+            cout << "Input Type: " << type << "\n";
+            cout << "Text Size: " << size << "\n\n";
+
+            // Brute Force
+            runTest("BruteForce", bruteForceSearch, text, pattern);
+            cout << "\n";
+
+            // Boyer-Moore
+            runTest("BoyerMoore", boyerMooreSearch, text, pattern);
+            cout << "\n";
+        }
+    }
+
+    return 0;
+}
